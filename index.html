@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -217,7 +218,7 @@ tr:hover td{background:rgba(0,87,255,0.03)}
     <div style="text-align:center;margin-bottom:28px">
       <div style="width:52px;height:52px;background:#0057ff;border-radius:12px;display:inline-flex;align-items:center;justify-content:center;font-size:26px;color:#fff;margin-bottom:12px">⚡</div>
       <div style="font-size:15px;font-weight:800;letter-spacing:0.06em;color:#0f1724">SEO PARASITE PRO</div>
-      <div style="font-size:9px;color:#8a96a8;letter-spacing:0.14em;margin-top:2px">v16 · BACKEND-PERSISTENT · ALL DATA SAVED</div>
+      <div style="font-size:9px;color:#8a96a8;letter-spacing:0.14em;margin-top:2px">v17 · CLICK LOGIN TO ENTER</div>
     </div>
     <div id="login-error" style="display:none;background:rgba(232,0,61,0.07);border:1px solid rgba(232,0,61,0.25);color:#e8003d;padding:8px 12px;border-radius:6px;font-size:10px;margin-bottom:14px;text-align:center"></div>
     <div style="margin-bottom:12px">
@@ -237,7 +238,7 @@ tr:hover td{background:rgba(0,87,255,0.03)}
       LOGIN →
     </button>
     <div style="margin-top:16px;font-size:9px;color:#8a96a8;text-align:center;line-height:1.9">
-      <span id="login-backend-status" style="color:#8a96a8">Checking backend…</span>
+      <span id="login-backend-status" style="color:#059669">Click Login to enter — no backend required</span>
     </div>
   </div>
 </div>
@@ -18902,37 +18903,27 @@ async function checkBackendStatus(){
   }
 }
 
-async function doLogin(){
-  const btn    = document.getElementById('login-btn');
-  const errEl  = document.getElementById('login-error');
-  const user   = (document.getElementById('login-user').value || '').trim();
-  const pass   = (document.getElementById('login-pass').value || '').trim();
-  if(!user || !pass){
-    if(errEl){ errEl.textContent = 'Enter username and password.'; errEl.style.display = 'block'; }
-    return;
+function doLogin(){
+  // Instantly dismiss login screen — no waiting, no backend required
+  var loginScreen = document.getElementById('login-screen');
+  var mainApp     = document.getElementById('main-app');
+  if(loginScreen) loginScreen.style.display = 'none';
+  if(mainApp)     mainApp.style.display = 'flex';
+  var user = ((document.getElementById('login-user')||{}).value||'').trim()||'admin';
+  _currentUser = user;
+  try{ _showMainApp(); }catch(e){
+    // _showMainApp may fail if already partially inited; that's fine — screen is already shown
+    try{ updateHeader(); }catch(e2){}
+    try{ updatePlatformBar(); }catch(e2){}
+    try{ renderPage(S.activePage||'dashboard'); }catch(e2){}
   }
-  btn.disabled = true; btn.textContent = 'LOGGING IN…';
-  if(errEl) errEl.style.display = 'none';
-  try{
-    const r = await fetch(BACKEND + '/auth/login', {
-      method: 'POST', headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({username: user, password: pass}),
-      signal: AbortSignal.timeout(6000)
-    });
-    const d = await r.json();
-    if(d.ok){
-      _currentUser = user;
-      // Restore all persisted state from backend into memory
-      _restoreStateFromPayload(d.data || {});
-      _showMainApp();
-    } else {
-      if(errEl){ errEl.textContent = d.error || 'Invalid credentials'; errEl.style.display = 'block'; }
-      btn.disabled = false; btn.textContent = 'LOGIN →';
-    }
-  }catch(e){
-    if(errEl){ errEl.textContent = 'Backend offline — start python backend.py first.'; errEl.style.display = 'block'; }
-    btn.disabled = false; btn.textContent = 'LOGIN →';
-  }
+  // Background backend sync — never blocks
+  var pass = ((document.getElementById('login-pass')||{}).value||'');
+  fetch(BACKEND+'/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({username:user,password:pass}),signal:AbortSignal.timeout(3000)})
+    .then(function(r){return r.json();})
+    .then(function(d){if(d.ok)try{_restoreStateFromPayload(d.data||{});}catch(e){} })
+    .catch(function(){});
 }
 
 function _restoreStateFromPayload(d){
@@ -21108,7 +21099,7 @@ async function fpStartScrape(){
   fpRefreshTable();
 
   try {
-    const resp = await fetch(`${API}/footprint/scrape`, {
+    const resp = await fetch(`${BACKEND}/footprint/scrape`, {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({keyword: kw, engine, maxResults: maxRes, maxPages, customFootprints: customFps})
@@ -21227,7 +21218,7 @@ async function fpQuickCheck(i){
   btn.disabled = true;
   btn.textContent = '⏳';
   try {
-    const resp = await fetch(`${API}/blog/check_autoapprove_single`, {
+    const resp = await fetch(`${BACKEND}/blog/check_autoapprove_single`, {
       method:'POST', headers:{'Content-Type':'application/json'},
       body:JSON.stringify({url: r.url})
     });
@@ -21539,7 +21530,7 @@ async function aaStartCheck(){
   let checked = 0;
 
   try {
-    const resp = await fetch(`${API}/blog/check_autoapprove`, {
+    const resp = await fetch(`${BACKEND}/blog/check_autoapprove`, {
       method:'POST',
       headers:{'Content-Type':'application/json'},
       body: JSON.stringify({urls, name, email, comment, waitSecs, captchaKey, linkTest, linkUrl})
